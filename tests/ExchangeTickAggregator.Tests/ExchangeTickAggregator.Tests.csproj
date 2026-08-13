@@ -20,4 +20,8 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ExchangeTickAggregator.Core\ExchangeTickAggregator.Core.csproj" />
+  </ItemGroup>
+
 </Project>
