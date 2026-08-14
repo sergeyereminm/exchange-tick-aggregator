@@ -20,6 +20,20 @@ public class BatchTickWriterTests
         Assert.Equal([firstTick, secondTick], batch);
     }
 
+    [Fact]
+    public async Task FlushAsync_writes_pending_ticks_before_shutdown()
+    {
+        var sink = new RecordingTickBatchSink();
+        var writer = new BatchTickWriter(sink, batchSize: 2);
+        var tick = CreateTick("BTCUSDT");
+
+        await writer.WriteAsync(tick);
+        await writer.FlushAsync();
+
+        var batch = Assert.Single(sink.Batches);
+        Assert.Equal([tick], batch);
+    }
+
     private static Tick CreateTick(string ticker) =>
         new(
             ticker,
