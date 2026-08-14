@@ -1,3 +1,39 @@
+using System.Net.WebSockets;
+using System.Text.Json;
+
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
+var products = new[] { "BTC-USD", "ETH-USD", "SOL-USD" };
+
+app.UseWebSockets();
+
+app.Map("/ticks", async context =>
+{
+    if (!context.WebSockets.IsWebSocketRequest)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+
+    var tickInterval = TimeSpan.FromMilliseconds(
+        builder.Configuration.GetValue<int>("Simulator:TickIntervalMilliseconds", 5));
+
+    using var socket = await context.WebSockets.AcceptWebSocketAsync();
+    using var timer = new PeriodicTimer(tickInterval);
+
+    while (socket.State == WebSocketState.Open &&
+           await timer.WaitForNextTickAsync(context.RequestAborted))
+    {
+        var payload = JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            product_id = products[Random.Shared.Next(products.Length)],
+            price = decimal.Round(100m + ((decimal)Random.Shared.NextDouble() * 49_900m), 2),
+            volume = decimal.Round(0.01m + ((decimal)Random.Shared.NextDouble() * 4.99m), 4),
+            time = DateTimeOffset.UtcNow
+        });
+
+        await socket.SendAsync(payload, WebSocketMessageType.Text, true, context.RequestAborted);
+    }
+});
+
 app.Run();
