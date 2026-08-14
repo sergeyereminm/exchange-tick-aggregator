@@ -22,6 +22,14 @@ public sealed class BatchTickWriter
         if (_pendingTicks.Count < _batchSize)
             return;
 
+        await FlushAsync(cancellationToken);
+    }
+
+    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        if (_pendingTicks.Count == 0)
+            return;
+
         var batch = _pendingTicks.ToArray();
         _pendingTicks.Clear();
 
