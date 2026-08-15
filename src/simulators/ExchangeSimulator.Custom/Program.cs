@@ -18,9 +18,12 @@ app.Map("/ticks", async context =>
 
     var tickInterval = TimeSpan.FromMilliseconds(
         builder.Configuration.GetValue<int>("Simulator:TickIntervalMilliseconds", 5));
+    var duplicateEveryTicks = builder.Configuration.GetValue<int>("Simulator:DuplicateEveryTicks");
+    var disconnectAfterTicks = builder.Configuration.GetValue<int>("Simulator:DisconnectAfterTicks");
 
     using var socket = await context.WebSockets.AcceptWebSocketAsync();
     using var timer = new PeriodicTimer(tickInterval);
+    var sentTicks = 0;
 
     while (socket.State == WebSocketState.Open &&
            await timer.WaitForNextTickAsync(context.RequestAborted))
@@ -37,6 +40,19 @@ app.Map("/ticks", async context =>
         });
 
         await socket.SendAsync(payload, WebSocketMessageType.Text, true, context.RequestAborted);
+        sentTicks++;
+
+        if (duplicateEveryTicks > 0 && sentTicks % duplicateEveryTicks == 0)
+            await socket.SendAsync(payload, WebSocketMessageType.Text, true, context.RequestAborted);
+
+        if (disconnectAfterTicks > 0 && sentTicks >= disconnectAfterTicks)
+        {
+            await socket.CloseAsync(
+                WebSocketCloseStatus.EndpointUnavailable,
+                "Configured simulator disconnect.",
+                context.RequestAborted);
+            break;
+        }
     }
 });
 
