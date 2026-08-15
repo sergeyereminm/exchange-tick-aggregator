@@ -19,4 +19,7 @@ public sealed class BoundedTickBuffer
     public int Count => _channel.Reader.Count;
 
     public bool TryEnqueue(Tick tick) => _channel.Writer.TryWrite(tick);
+
+    public ValueTask EnqueueAsync(Tick tick, CancellationToken cancellationToken) =>
+        _channel.Writer.WriteAsync(tick, cancellationToken);
 }

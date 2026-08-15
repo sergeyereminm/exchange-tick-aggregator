@@ -4,4 +4,8 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ExchangeTickAggregator.Core\ExchangeTickAggregator.Core.csproj" />
+  </ItemGroup>
+
 </Project>
