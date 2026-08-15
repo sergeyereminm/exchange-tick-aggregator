@@ -1,7 +1,9 @@
 using ExchangeTickAggregator.Core.Deduplication;
+using ExchangeTickAggregator.Core.Monitoring;
 using ExchangeTickAggregator.Core.Pipeline;
 using ExchangeTickAggregator.Core.Persistence;
 using ExchangeTickAggregator.Ingestion;
+using ExchangeTickAggregator.Monitoring;
 using ExchangeTickAggregator.Persistence;
 using Npgsql;
 
@@ -14,6 +16,7 @@ var persistenceOptions = builder.Configuration.GetSection("Persistence").Get<Per
 
 builder.Services.AddSingleton(new BoundedTickBuffer(ingestionOptions.BufferCapacity));
 builder.Services.AddSingleton(new TickDeduplicator(TimeSpan.FromSeconds(ingestionOptions.DeduplicationWindowSeconds)));
+builder.Services.AddSingleton<TickMetrics>();
 builder.Services.AddSingleton(NpgsqlDataSource.Create(persistenceOptions.ConnectionString));
 builder.Services.AddSingleton<PostgresTickBatchSink>();
 builder.Services.AddSingleton<ITickBatchSink>(serviceProvider =>
@@ -23,8 +26,12 @@ builder.Services.AddSingleton<ITickBatchSink>(serviceProvider =>
     return new RetryingTickBatchSink(
         serviceProvider.GetRequiredService<PostgresTickBatchSink>(),
         persistenceOptions.MaxWriteAttempts,
+        serviceProvider.GetRequiredService<TickMetrics>().RecordPersisted,
         (exception, tickCount) =>
-            logger.LogError(exception, "Dropped {TickCount} ticks after database write retries", tickCount));
+        {
+            serviceProvider.GetRequiredService<TickMetrics>().RecordDropped(tickCount);
+            logger.LogError(exception, "Dropped {TickCount} ticks after database write retries", tickCount);
+        });
 });
 builder.Services.AddSingleton(serviceProvider =>
     new BatchTickWriter(
@@ -33,6 +40,7 @@ builder.Services.AddSingleton(serviceProvider =>
 builder.Services.AddHostedService<PostgresSchemaInitializer>();
 builder.Services.AddHostedService<TickPersistenceWorker>();
 builder.Services.AddHostedService<TickIngestionWorker>();
+builder.Services.AddHostedService<TickMetricsLogger>();
 
 var host = builder.Build();
 host.Run();

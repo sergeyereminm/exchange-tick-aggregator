@@ -2,6 +2,7 @@ using System.Net.WebSockets;
 using System.Text;
 using ExchangeTickAggregator.Core;
 using ExchangeTickAggregator.Core.Deduplication;
+using ExchangeTickAggregator.Core.Monitoring;
 using ExchangeTickAggregator.Core.Parsing;
 using ExchangeTickAggregator.Core.Pipeline;
 using ExchangeTickAggregator.Core.Reconnect;
@@ -12,6 +13,7 @@ public sealed class TickIngestionWorker(
     IConfiguration configuration,
     BoundedTickBuffer tickBuffer,
     TickDeduplicator deduplicator,
+    TickMetrics metrics,
     ILogger<TickIngestionWorker> logger) : BackgroundService
 {
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -104,6 +106,7 @@ public sealed class TickIngestionWorker(
 
             var receivedAt = DateTimeOffset.UtcNow;
             watchdog.NotifyActivity(receivedAt);
+            metrics.RecordReceived();
 
             if (watchdog.HasTimedOut(receivedAt))
                 throw new TimeoutException($"Exchange '{exchangeName}' exceeded its idle timeout.");
@@ -116,14 +119,19 @@ public sealed class TickIngestionWorker(
             }
             catch (Exception exception)
             {
+                metrics.RecordMalformed();
                 logger.LogWarning(exception, "Discarded malformed tick from exchange {Exchange}", exchangeName);
                 continue;
             }
 
             if (!deduplicator.TryAccept(tick))
+            {
+                metrics.RecordDuplicate();
                 continue;
+            }
 
             await tickBuffer.EnqueueAsync(tick, stoppingToken);
+            metrics.RecordBuffered();
         }
     }
 }

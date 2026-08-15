@@ -4,12 +4,14 @@ public sealed class RetryingTickBatchSink : ITickBatchSink
 {
     private readonly ITickBatchSink _inner;
     private readonly int _maxAttempts;
+    private readonly Action<int>? _onBatchWritten;
     private readonly Action<Exception, int>? _onBatchDropped;
     private long _droppedTickCount;
 
     public RetryingTickBatchSink(
         ITickBatchSink inner,
         int maxAttempts,
+        Action<int>? onBatchWritten = null,
         Action<Exception, int>? onBatchDropped = null)
     {
         ArgumentNullException.ThrowIfNull(inner);
@@ -17,6 +19,7 @@ public sealed class RetryingTickBatchSink : ITickBatchSink
 
         _inner = inner;
         _maxAttempts = maxAttempts;
+        _onBatchWritten = onBatchWritten;
         _onBatchDropped = onBatchDropped;
     }
 
@@ -29,6 +32,7 @@ public sealed class RetryingTickBatchSink : ITickBatchSink
             try
             {
                 await _inner.WriteAsync(ticks, cancellationToken);
+                _onBatchWritten?.Invoke(ticks.Count);
                 return;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
