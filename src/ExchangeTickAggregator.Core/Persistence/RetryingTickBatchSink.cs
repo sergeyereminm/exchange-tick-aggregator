@@ -4,15 +4,20 @@ public sealed class RetryingTickBatchSink : ITickBatchSink
 {
     private readonly ITickBatchSink _inner;
     private readonly int _maxAttempts;
+    private readonly Action<Exception, int>? _onBatchDropped;
     private long _droppedTickCount;
 
-    public RetryingTickBatchSink(ITickBatchSink inner, int maxAttempts)
+    public RetryingTickBatchSink(
+        ITickBatchSink inner,
+        int maxAttempts,
+        Action<Exception, int>? onBatchDropped = null)
     {
         ArgumentNullException.ThrowIfNull(inner);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxAttempts, 0);
 
         _inner = inner;
         _maxAttempts = maxAttempts;
+        _onBatchDropped = onBatchDropped;
     }
 
     public long DroppedTickCount => Interlocked.Read(ref _droppedTickCount);
@@ -30,10 +35,13 @@ public sealed class RetryingTickBatchSink : ITickBatchSink
             {
                 throw;
             }
-            catch
+            catch (Exception exception)
             {
                 if (attempt == _maxAttempts)
+                {
                     Interlocked.Add(ref _droppedTickCount, ticks.Count);
+                    _onBatchDropped?.Invoke(exception, ticks.Count);
+                }
             }
         }
     }

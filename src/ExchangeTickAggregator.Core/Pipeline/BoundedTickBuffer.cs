@@ -22,4 +22,19 @@ public sealed class BoundedTickBuffer
 
     public ValueTask EnqueueAsync(Tick tick, CancellationToken cancellationToken) =>
         _channel.Writer.WriteAsync(tick, cancellationToken);
+
+    public ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken) =>
+        _channel.Reader.WaitToReadAsync(cancellationToken);
+
+    public bool TryDequeue(out Tick tick)
+    {
+        if (_channel.Reader.TryRead(out var bufferedTick))
+        {
+            tick = bufferedTick;
+            return true;
+        }
+
+        tick = default!;
+        return false;
+    }
 }
