@@ -129,7 +129,7 @@ All parsers map to one internal `Tick` (`Ticker`, `Price`, `Volume`, `Timestamp`
 - **Window:** 10 seconds (`Ingestion:DeduplicationWindowSeconds`)
 - **Implementation:** `ConcurrentDictionary` with compare-and-swap so concurrent accept/reject from multiple exchanges stays correct
 
-Trade-off: the window is in-memory and process-local. After a restart, the same tick can be stored again. A durable dedup store would remove that risk at the cost of latency and operational complexity.
+Trade-off: the window is in-memory and process-local. Expired fingerprints are removed after the window, so memory stays bounded by recent unique ticks. After a restart, the same tick can be stored again. A durable dedup store would remove that risk at the cost of latency and operational complexity.
 
 ### Queue and backpressure
 
