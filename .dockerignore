@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/.git/
+**/TestResults/
+**/*.user
+**/*.DotSettings.user
+README.md
+.gitignore

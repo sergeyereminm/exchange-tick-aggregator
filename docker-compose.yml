@@ -15,5 +15,72 @@ services:
       timeout: 5s
       retries: 5
 
+  binance-style:
+    build:
+      context: .
+      dockerfile: Dockerfile.simulator
+      args:
+        PROJECT: ExchangeSimulator.BinanceStyle
+    environment:
+      ASPNETCORE_URLS: http://0.0.0.0:5001
+      Simulator__TickIntervalMilliseconds: "5"
+      Simulator__DuplicateEveryTicks: "50"
+      Simulator__DisconnectAfterTicks: "200"
+    ports:
+      - "127.0.0.1:5001:5001"
+
+  coinbase-style:
+    build:
+      context: .
+      dockerfile: Dockerfile.simulator
+      args:
+        PROJECT: ExchangeSimulator.CoinbaseStyle
+    environment:
+      ASPNETCORE_URLS: http://0.0.0.0:5002
+      Simulator__TickIntervalMilliseconds: "5"
+      Simulator__DuplicateEveryTicks: "50"
+      Simulator__DisconnectAfterTicks: "200"
+    ports:
+      - "127.0.0.1:5002:5002"
+
+  custom:
+    build:
+      context: .
+      dockerfile: Dockerfile.simulator
+      args:
+        PROJECT: ExchangeSimulator.Custom
+    environment:
+      ASPNETCORE_URLS: http://0.0.0.0:5003
+      Simulator__TickIntervalMilliseconds: "5"
+      Simulator__DuplicateEveryTicks: "50"
+      Simulator__DisconnectAfterTicks: "200"
+    ports:
+      - "127.0.0.1:5003:5003"
+
+  aggregator:
+    build:
+      context: .
+      dockerfile: Dockerfile.aggregator
+    depends_on:
+      postgres:
+        condition: service_healthy
+      binance-style:
+        condition: service_started
+      coinbase-style:
+        condition: service_started
+      custom:
+        condition: service_started
+    environment:
+      Persistence__ConnectionString: Host=postgres;Port=5432;Database=ticks;Username=aggregator;Password=aggregator
+      Exchanges__0__Name: binance-style
+      Exchanges__0__Endpoint: ws://binance-style:5001/ticks
+      Exchanges__0__Format: BinanceStyle
+      Exchanges__1__Name: coinbase-style
+      Exchanges__1__Endpoint: ws://coinbase-style:5002/ticks
+      Exchanges__1__Format: CoinbaseStyle
+      Exchanges__2__Name: custom
+      Exchanges__2__Endpoint: ws://custom:5003/ticks
+      Exchanges__2__Format: Custom
+
 volumes:
   postgres_data:
