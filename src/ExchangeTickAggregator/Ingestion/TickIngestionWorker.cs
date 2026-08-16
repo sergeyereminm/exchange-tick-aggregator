@@ -62,12 +62,23 @@ public sealed class TickIngestionWorker(
                 logger.LogWarning(exception, "Exchange {Exchange} connection ended", exchange.Name);
             }
 
+            if (stoppingToken.IsCancellationRequested)
+                break;
+
             var delay = backoff.NextDelay();
             logger.LogInformation(
                 "Reconnecting to exchange {Exchange} after {Delay}",
                 exchange.Name,
                 delay);
-            await Task.Delay(delay, stoppingToken);
+
+            try
+            {
+                await Task.Delay(delay, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
         }
     }
 

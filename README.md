@@ -129,7 +129,7 @@ All parsers map to one internal `Tick` (`Ticker`, `Price`, `Volume`, `Timestamp`
 - **Window:** 10 seconds (`Ingestion:DeduplicationWindowSeconds`)
 - **Implementation:** `ConcurrentDictionary` with compare-and-swap so concurrent accept/reject from multiple exchanges stays correct
 
-Trade-off: the window is in-memory and process-local. Expired fingerprints are removed after the window, so memory stays bounded by recent unique ticks. After a restart, the same tick can be stored again. A durable dedup store would remove that risk at the cost of latency and operational complexity.
+Trade-off: the window is in-memory and process-local. Expired fingerprints are removed at most once per window, so memory stays bounded by recent unique ticks without scanning the dictionary on every accept. After a restart, the same tick can be stored again. A durable dedup store would remove that risk at the cost of latency and operational complexity.
 
 ### Queue and backpressure
 
@@ -143,7 +143,7 @@ Trade-off: short Postgres slowdowns do not lose ticks. If the database stays dow
 - Multi-row `INSERT` via Npgsql
 - Schema is created on startup (`CREATE TABLE IF NOT EXISTS ticks ...`)
 
-On write failure the batch is retried up to `MaxWriteAttempts` (default 3). If all attempts fail, the batch is dropped, `DroppedTickCount` is incremented, and an error is logged. Silent loss is intentionally avoided: either the write succeeds or the drop is visible in logs and metrics.
+On write failure the batch is retried up to `MaxWriteAttempts` (default 3), with `WriteRetryDelayMilliseconds` (default 100 ms) between attempts. If all attempts fail, the batch is dropped, `DroppedTickCount` is incremented, and an error is logged. Silent loss is intentionally avoided: either the write succeeds or the drop is visible in logs and metrics. A failed flush keeps the pending batch in memory so the next attempt can retry the same ticks.
 
 Trade-off: after retries are exhausted, ticks are discarded rather than written elsewhere. A durable outbox would survive longer outages; this solution keeps the failure mode explicit and memory-bounded.
 
@@ -179,6 +179,7 @@ Key settings live in `src/ExchangeTickAggregator/appsettings.json` and can be ov
 | `Persistence` | `BatchSize` | 500 | Rows per batch |
 | `Persistence` | `FlushIntervalMilliseconds` | 1000 | Timer-based flush |
 | `Persistence` | `MaxWriteAttempts` | 3 | Write retry budget |
+| `Persistence` | `WriteRetryDelayMilliseconds` | 100 | Pause between write retries |
 | `Persistence` | `DrainTimeoutMilliseconds` | 5000 | Shutdown drain budget for the channel and pending batch |
 
 Simulator settings: `Simulator__TickIntervalMilliseconds`, `Simulator__DuplicateEveryTicks`, `Simulator__DisconnectAfterTicks`.

@@ -10,5 +10,7 @@ public sealed class PersistenceOptions
 
     public int MaxWriteAttempts { get; init; }
 
+    public int WriteRetryDelayMilliseconds { get; init; } = 100;
+
     public int DrainTimeoutMilliseconds { get; init; } = 5000;
 }

@@ -31,7 +31,8 @@ builder.Services.AddSingleton<ITickBatchSink>(serviceProvider =>
         {
             serviceProvider.GetRequiredService<TickMetrics>().RecordDropped(tickCount);
             logger.LogError(exception, "Dropped {TickCount} ticks after database write retries", tickCount);
-        });
+        },
+        TimeSpan.FromMilliseconds(persistenceOptions.WriteRetryDelayMilliseconds));
 });
 builder.Services.AddSingleton(serviceProvider =>
     new BatchTickWriter(

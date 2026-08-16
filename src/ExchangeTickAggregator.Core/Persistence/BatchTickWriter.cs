@@ -31,8 +31,7 @@ public sealed class BatchTickWriter
             return;
 
         var batch = _pendingTicks.ToArray();
-        _pendingTicks.Clear();
-
         await _sink.WriteAsync(batch, cancellationToken);
+        _pendingTicks.RemoveRange(0, batch.Length);
     }
 }

@@ -9,7 +9,7 @@ public class RetryingTickBatchSinkTests
     public async Task WriteAsync_retries_failed_batch_and_counts_dropped_ticks_after_attempt_limit()
     {
         var failingSink = new FailingTickBatchSink();
-        var sink = new RetryingTickBatchSink(failingSink, maxAttempts: 3);
+        var sink = new RetryingTickBatchSink(failingSink, maxAttempts: 3, retryDelay: TimeSpan.Zero);
         var batch = new[] { CreateTick("BTCUSDT"), CreateTick("ETHUSDT") };
 
         await sink.WriteAsync(batch, CancellationToken.None);

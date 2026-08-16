@@ -7,6 +7,7 @@ public sealed class TickDeduplicator
     private readonly TimeSpan _window;
     private readonly TimeProvider _timeProvider;
     private readonly ConcurrentDictionary<TickFingerprint, DateTimeOffset> _acceptedAt = new();
+    private long _lastCleanupUtcTicks;
 
     public TickDeduplicator(TimeSpan window, TimeProvider? timeProvider = null)
     {
@@ -22,7 +23,7 @@ public sealed class TickDeduplicator
     {
         var fingerprint = TickFingerprint.From(tick);
         var now = _timeProvider.GetUtcNow();
-        RemoveExpired(now);
+        CleanupIfDue(now);
 
         while (true)
         {
@@ -42,8 +43,17 @@ public sealed class TickDeduplicator
         }
     }
 
-    private void RemoveExpired(DateTimeOffset now)
+    private void CleanupIfDue(DateTimeOffset now)
     {
+        var nowTicks = now.UtcTicks;
+        var lastCleanupTicks = Interlocked.Read(ref _lastCleanupUtcTicks);
+
+        if (lastCleanupTicks != 0 && nowTicks - lastCleanupTicks < _window.Ticks)
+            return;
+
+        if (Interlocked.CompareExchange(ref _lastCleanupUtcTicks, nowTicks, lastCleanupTicks) != lastCleanupTicks)
+            return;
+
         foreach (var pair in _acceptedAt)
         {
             if (now - pair.Value > _window)
