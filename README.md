@@ -151,7 +151,7 @@ Trade-off: after retries are exhausted, ticks are discarded rather than written 
 
 Each exchange runs in its own loop:
 
-- exponential backoff between reconnects (1 s → 30 s)
+- exponential backoff between reconnects (1 s → 30 s), with jitter so sources do not reconnect in lockstep
 - idle timeout (15 s) closes a stalled socket that stopped sending ticks
 - a fault on one source does not cancel the others (`Task.WhenAll` + per-source try/catch)
 
