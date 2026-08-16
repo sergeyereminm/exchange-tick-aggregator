@@ -40,6 +40,40 @@ Inspect stored ticks:
 docker compose exec postgres psql -U aggregator -d ticks -c "SELECT source, COUNT(*) FROM ticks GROUP BY source ORDER BY source;"
 ```
 
+Aggregator logs (connect, disconnect, metrics):
+
+```bash
+docker compose logs -f aggregator
+```
+
+### Watch a simulator in the browser
+
+The address bar will not open `ws://...`. Use this instead:
+
+1. In Chrome, open `http://127.0.0.1:5001/ticks`. A **400** response is expected: this is a WebSocket endpoint, not HTML.
+2. Press `F12` and open the Console tab.
+3. Paste:
+
+```javascript
+const ws = new WebSocket("ws://127.0.0.1:5001/ticks");
+ws.onopen = () => console.log("connected");
+ws.onmessage = (e) => console.log(e.data);
+ws.onerror = (e) => console.error(e);
+ws.onclose = (e) => console.log("closed", e.code, e.reason);
+```
+
+You should see JSON such as `{"s":"BTCUSDT","p":"123.45","q":"0.12","T":...}`. If the console reports mixed content, open `http://127.0.0.1:5001/ticks` or `about:blank` first, then paste the snippet again.
+
+In Compose the simulator closes the socket after about 200 ticks — the console will log `closed`. This snippet does not reconnect; the aggregator reconnects on its own.
+
+Stop the client:
+
+```javascript
+ws.close();
+```
+
+The same steps work on ports `5002` and `5003`; the JSON shape differs.
+
 Stop and remove volumes:
 
 ```bash

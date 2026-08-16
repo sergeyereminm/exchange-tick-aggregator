@@ -40,6 +40,40 @@ Postgres на хосте слушает порт **15432**, чтобы не пе
 docker compose exec postgres psql -U aggregator -d ticks -c "SELECT source, COUNT(*) FROM ticks GROUP BY source ORDER BY source;"
 ```
 
+Логи агрегатора (подключения, обрывы, метрики):
+
+```bash
+docker compose logs -f aggregator
+```
+
+### Поток имитатора в браузере
+
+Адресная строка не открывает `ws://...`. Сделайте так:
+
+1. В Chrome откройте `http://127.0.0.1:5001/ticks`. Ответ **400** — нормально: это WebSocket, не HTML.
+2. `F12` → вкладка Console.
+3. Вставьте:
+
+```javascript
+const ws = new WebSocket("ws://127.0.0.1:5001/ticks");
+ws.onopen = () => console.log("connected");
+ws.onmessage = (e) => console.log(e.data);
+ws.onerror = (e) => console.error(e);
+ws.onclose = (e) => console.log("closed", e.code, e.reason);
+```
+
+Пойдут JSON вроде `{"s":"BTCUSDT","p":"123.45","q":"0.12","T":...}`. Если консоль ругается на mixed content, сначала откройте именно `http://127.0.0.1:5001/ticks` или `about:blank`, затем снова вставьте код.
+
+В Compose имитатор закрывает сокет после ~200 тиков — в консоли будет `closed`. Этот сниппет сам не переподключается; агрегатор переподключается отдельно.
+
+Остановить:
+
+```javascript
+ws.close();
+```
+
+То же для портов `5002` и `5003` — формат JSON другой.
+
 Остановить стек и удалить данные тома:
 
 ```bash
