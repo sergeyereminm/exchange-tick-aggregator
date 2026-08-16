@@ -74,6 +74,45 @@ ws.close();
 
 The same steps work on ports `5002` and `5003`; the JSON shape differs.
 
+### Inject faults on command
+
+Each simulator exposes a small HTTP API. With the stack running:
+
+List commands:
+
+```bash
+curl http://127.0.0.1:5001/fault
+```
+
+Drop the WebSocket (aggregator should reconnect; other exchanges keep running):
+
+```bash
+curl -X POST http://127.0.0.1:5001/fault/disconnect
+```
+
+Replay the next tick once (aggregator should count a duplicate):
+
+```bash
+curl -X POST http://127.0.0.1:5001/fault/duplicate
+```
+
+Same from the Chrome console on `http://127.0.0.1:5001/ticks`:
+
+```javascript
+await fetch("/fault/disconnect", { method: "POST" }).then(r => r.json());
+await fetch("/fault/duplicate", { method: "POST" }).then(r => r.json());
+```
+
+Watch aggregator logs while you send commands:
+
+```bash
+docker compose logs -f aggregator
+```
+
+You should see `connection ended` / `Reconnecting` / `Connected` after `disconnect`, and `duplicate` growing in the periodic metrics line after `duplicate`.
+
+Use ports `5002` and `5003` for the other simulators. Compose still also injects periodic duplicates/disconnects via `DuplicateEveryTicks` / `DisconnectAfterTicks`; the HTTP commands are extra, on demand.
+
 Stop and remove volumes:
 
 ```bash

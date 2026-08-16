@@ -74,6 +74,45 @@ ws.close();
 
 То же для портов `5002` и `5003` — формат JSON другой.
 
+### Сбои по команде
+
+У каждого имитатора есть небольшой HTTP API. Стек должен быть запущен.
+
+Список команд:
+
+```bash
+curl http://127.0.0.1:5001/fault
+```
+
+Разорвать WebSocket (агрегатор должен переподключиться, остальные биржи продолжают работать):
+
+```bash
+curl -X POST http://127.0.0.1:5001/fault/disconnect
+```
+
+Ещё раз отправить следующий тик (агрегатор должен посчитать дубликат):
+
+```bash
+curl -X POST http://127.0.0.1:5001/fault/duplicate
+```
+
+То же из консоли Chrome на странице `http://127.0.0.1:5001/ticks`:
+
+```javascript
+await fetch("/fault/disconnect", { method: "POST" }).then(r => r.json());
+await fetch("/fault/duplicate", { method: "POST" }).then(r => r.json());
+```
+
+Параллельно смотрите логи агрегатора:
+
+```bash
+docker compose logs -f aggregator
+```
+
+После `disconnect` появятся `connection ended` / `Reconnecting` / `Connected`. После `duplicate` в строке метрик вырастет счётчик `duplicate`.
+
+Порты `5002` и `5003` — другие имитаторы. В Compose по-прежнему работают периодические сбои (`DuplicateEveryTicks` / `DisconnectAfterTicks`); HTTP-команды — дополнительно, в любой момент.
+
 Остановить стек и удалить данные тома:
 
 ```bash

@@ -5,8 +5,10 @@ using System.Text.Json;
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 var tickers = new[] { "BTC-USD", "ETH-USD", "SOL-USD" };
+var faults = new SimulatorFaultCommands();
 
 app.UseWebSockets();
+app.MapFaultCommands(faults);
 
 app.Map("/ticks", async context =>
 {
@@ -24,6 +26,8 @@ app.Map("/ticks", async context =>
     using var socket = await context.WebSockets.AcceptWebSocketAsync();
     using var timer = new PeriodicTimer(tickInterval);
     var sentTicks = 0;
+    var seenDisconnectVersion = faults.DisconnectVersion;
+    var seenDuplicateVersion = faults.DuplicateVersion;
 
     while (socket.State == WebSocketState.Open &&
            await timer.WaitForNextTickAsync(context.RequestAborted))
@@ -42,14 +46,21 @@ app.Map("/ticks", async context =>
         await socket.SendAsync(payload, WebSocketMessageType.Text, true, context.RequestAborted);
         sentTicks++;
 
-        if (duplicateEveryTicks > 0 && sentTicks % duplicateEveryTicks == 0)
+        var duplicateVersion = faults.DuplicateVersion;
+        if (duplicateVersion != seenDuplicateVersion ||
+            (duplicateEveryTicks > 0 && sentTicks % duplicateEveryTicks == 0))
+        {
+            seenDuplicateVersion = duplicateVersion;
             await socket.SendAsync(payload, WebSocketMessageType.Text, true, context.RequestAborted);
+        }
 
-        if (disconnectAfterTicks > 0 && sentTicks >= disconnectAfterTicks)
+        var disconnectVersion = faults.DisconnectVersion;
+        if (disconnectVersion != seenDisconnectVersion ||
+            (disconnectAfterTicks > 0 && sentTicks >= disconnectAfterTicks))
         {
             await socket.CloseAsync(
                 WebSocketCloseStatus.EndpointUnavailable,
-                "Configured simulator disconnect.",
+                "Simulator disconnect.",
                 context.RequestAborted);
             break;
         }

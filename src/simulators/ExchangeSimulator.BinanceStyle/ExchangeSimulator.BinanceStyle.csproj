@@ -1,1 +1,5 @@
-<Project Sdk="Microsoft.NET.Sdk.Web" />
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <Compile Include="..\SimulatorFaultCommands.cs" Link="SimulatorFaultCommands.cs" />
+  </ItemGroup>
+</Project>
