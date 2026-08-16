@@ -163,7 +163,7 @@ Thread-safe counters track received, malformed, duplicate, buffered, persisted, 
 
 ### Shutdown
 
-On host stop, ingestion cancels and the persistence worker flushes the pending in-memory batch. Ticks still sitting in the channel may not reach the database — see [Known limits](#known-limits).
+On host stop, ingestion cancels. The persistence worker then drains the bounded channel and flushes the pending batch, within `Persistence:DrainTimeoutMilliseconds` (default 5 s). If the timeout expires, remaining ticks may be lost — see [Known limits](#known-limits).
 
 ## Configuration
 
@@ -179,6 +179,7 @@ Key settings live in `src/ExchangeTickAggregator/appsettings.json` and can be ov
 | `Persistence` | `BatchSize` | 500 | Rows per batch |
 | `Persistence` | `FlushIntervalMilliseconds` | 1000 | Timer-based flush |
 | `Persistence` | `MaxWriteAttempts` | 3 | Write retry budget |
+| `Persistence` | `DrainTimeoutMilliseconds` | 5000 | Shutdown drain budget for the channel and pending batch |
 
 Simulator settings: `Simulator__TickIntervalMilliseconds`, `Simulator__DuplicateEveryTicks`, `Simulator__DisconnectAfterTicks`.
 
@@ -188,7 +189,7 @@ Simulator settings: `Simulator__TickIntervalMilliseconds`, `Simulator__Duplicate
 - Metrics are log counters, not Prometheus/Grafana.
 - Deduplication is in-process only; restarts can accept previously seen ticks again.
 - After DB retries are exhausted, the failed batch is dropped (counted and logged), not written to an outbox.
-- Shutdown flushes the pending batch only; a full timed drain of the bounded channel is not implemented.
+- If shutdown drain exceeds `DrainTimeoutMilliseconds`, ticks still in the channel or pending batch may be lost.
 - Simulators listen on `0.0.0.0` so containers can reach each other. Do not expose those ports beyond a trusted host/network.
 
 ## Layout

@@ -15,6 +15,7 @@ public sealed class TickPersistenceWorker(
             ?? throw new InvalidOperationException("Persistence configuration is missing.");
 
         var flushInterval = TimeSpan.FromMilliseconds(persistence.FlushIntervalMilliseconds);
+        var drainTimeout = TimeSpan.FromMilliseconds(persistence.DrainTimeoutMilliseconds);
 
         try
         {
@@ -41,11 +42,12 @@ public sealed class TickPersistenceWorker(
         {
             try
             {
-                await batchWriter.FlushAsync(CancellationToken.None);
+                using var shutdownTimeout = new CancellationTokenSource(drainTimeout);
+                await TickChannelDrain.DrainAsync(tickBuffer, batchWriter, shutdownTimeout.Token);
             }
             catch (Exception exception)
             {
-                logger.LogError(exception, "Failed to flush pending ticks during shutdown");
+                logger.LogError(exception, "Failed to drain buffered ticks during shutdown");
             }
         }
     }

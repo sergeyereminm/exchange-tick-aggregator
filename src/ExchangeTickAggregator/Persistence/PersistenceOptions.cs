@@ -9,4 +9,6 @@ public sealed class PersistenceOptions
     public int FlushIntervalMilliseconds { get; init; }
 
     public int MaxWriteAttempts { get; init; }
+
+    public int DrainTimeoutMilliseconds { get; init; } = 5000;
 }
